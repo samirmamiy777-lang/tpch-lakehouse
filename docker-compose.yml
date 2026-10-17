@@ -1,0 +1,51 @@
+services:
+  minio:
+    image: coollabsio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: lakekeeper
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:latest
+    container_name: lakekeeper
+    command: serve
+    ports:
+      - "8181:8181"
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: "test-key-123"
+      LAKEKEEPER__PG_DATABASE_URL_READ: "postgresql://admin:password@postgres:5432/lakekeeper"
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: "postgresql://admin:password@postgres:5432/lakekeeper"
+    depends_on:
+      - postgres
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8080:8080"
+    depends_on:
+      - lakekeeper
+      - minio
+
+volumes:
+  minio_data:
+  pg_data:
